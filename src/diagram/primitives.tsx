@@ -454,3 +454,63 @@ export function Caption(props: { x?: number; y: number; children: ComponentChild
     </Label>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Bar magnet
+// ---------------------------------------------------------------------------
+
+/**
+ * Bar magnet centered at (cx, cy), lying horizontally or vertically.
+ * `north` says which end is N: for horizontal 'left' | 'right', for vertical 'up' | 'down'.
+ * Field outside a magnet points AWAY from N and TOWARD S.
+ * Returns the screen coordinates of both pole faces via the static helper `barMagnetPoles`.
+ */
+export function BarMagnet(props: {
+  cx: number
+  cy: number
+  length?: number
+  thickness?: number
+  north: 'left' | 'right' | 'up' | 'down'
+}) {
+  const L = props.length ?? 180
+  const T = props.thickness ?? 50
+  const horizontal = props.north === 'left' || props.north === 'right'
+  const w = horizontal ? L : T
+  const h = horizontal ? T : L
+  const x0 = props.cx - w / 2
+  const y0 = props.cy - h / 2
+  // first half = left (horizontal) or top (vertical)
+  const firstIsN = props.north === 'left' || props.north === 'up'
+  const halfW = horizontal ? w / 2 : w
+  const halfH = horizontal ? h : h / 2
+  const x1 = horizontal ? x0 + w / 2 : x0
+  const y1 = horizontal ? y0 : y0 + h / 2
+  const cN = COLORS.northPole
+  const cS = COLORS.southPole
+  const firstC = firstIsN ? cN : cS
+  const secondC = firstIsN ? cS : cN
+  return (
+    <g>
+      <rect x={x0} y={y0} width={halfW} height={halfH} fill={firstC} rx={4} />
+      <rect x={x1} y={y1} width={halfW} height={halfH} fill={secondC} rx={4} />
+      <rect x={x0} y={y0} width={w} height={h} fill="none" stroke={COLORS.ink} stroke-width={1.5} rx={4} opacity={0.5} />
+      <text x={x0 + halfW / 2} y={y0 + halfH / 2} fill="#fff" font-size={24} font-weight={800} text-anchor="middle" dominant-baseline="central">
+        {firstIsN ? 'N' : 'S'}
+      </text>
+      <text x={x1 + halfW / 2} y={y1 + halfH / 2} fill="#fff" font-size={24} font-weight={800} text-anchor="middle" dominant-baseline="central">
+        {firstIsN ? 'S' : 'N'}
+      </text>
+    </g>
+  )
+}
+
+/** Screen coords of the centers of the N and S pole faces of a BarMagnet with the same props. */
+export function barMagnetPoles(p: { cx: number; cy: number; length?: number; north: 'left' | 'right' | 'up' | 'down' }) {
+  const L = p.length ?? 180
+  const half = L / 2
+  const off = { left: [-half, 0], right: [half, 0], up: [0, -half], down: [0, half] }[p.north]
+  return {
+    N: { x: p.cx + off[0], y: p.cy + off[1] },
+    S: { x: p.cx - off[0], y: p.cy - off[1] },
+  }
+}
