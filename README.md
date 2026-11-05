@@ -20,4 +20,20 @@ npm run build
 
 Share a specific problem with `#t=<typeId>&s=<seed>` (the in-app "Copy link" button does this).
 
+## Practice sets (instructor links)
+The **Practice** panel picks topics plus three settings, and "Copy link to this practice set" puts them all in the URL.
+Opening such a link gives the student exactly that set (overriding whatever they had saved); they can still change it.
+
+| hash key | values | default |
+|---|---|---|
+| `topics` | category ids (`charges`, `wires`, `coils`, `induction`) and/or problem ids, comma-separated | all |
+| `ans` | answer kinds that can come up: `plane` (↑↓←→), `depth` (⊙⊗), `rot` (↻↺), `zero` | all |
+| `pad` | `full` = every direction (plus ↻↺ on coil-current questions) · `focused` = only answers the picture leaves open | `full` |
+| `views` | coil drawings: `side`, `upright`, `end` (end-on = looking down the axis) | all |
+
+Example — beginners, coils only, in-page answers, two-button pads, side-on coils:
+`#topics=coils&ans=plane&pad=focused&views=side`
+
+Questions whose answer is a switched-off kind are skipped; topics that can't come up at all are struck through in the panel.
+
 Deploys to GitHub Pages on every push to `main`.

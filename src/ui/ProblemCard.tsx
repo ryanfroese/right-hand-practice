@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { ProblemType } from '../problems/types'
 import { CATEGORY_LABEL } from '../problems/types'
-import { makeRng } from '../rng'
+import { generate, padChoices, type PracticeSettings } from '../practice/settings'
 import { AnswerPad, KEY_TO_ID, type PadStage } from './AnswerPad'
 import { prefersReducedMotion } from './motion'
 
@@ -17,19 +17,22 @@ function isTyping(el: Element | null) {
 export function ProblemCard(props: {
   type: ProblemType
   seed: number
+  settings: PracticeSettings
   onResult: (correct: boolean) => Feedback
   onNext: () => void
   onCopyLink: () => Promise<boolean>
 }) {
-  const { type, seed } = props
+  const { type, seed, settings } = props
+  // The card is keyed by type, seed and coil views (see App), so the problem never changes under it.
   const gen = useMemo(() => {
     try {
-      return { problem: type.generate(makeRng(seed)), error: null }
+      return { problem: generate(type, seed, settings), error: null }
     } catch (e) {
       console.error(e)
       return { problem: null, error: e }
     }
   }, [type, seed])
+  const choices = useMemo(() => (gen.problem ? padChoices(gen.problem, settings) : []), [gen.problem, settings.pad, settings.kinds.join()])
 
   const [picked, setPicked] = useState<string | null>(null)
   const [stage, setStage] = useState<PadStage>('ask')
@@ -88,8 +91,8 @@ export function ProblemCard(props: {
       if (!onBody && !(ae instanceof Element && ae.closest('.pad'))) return
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key
       let id: string | undefined = KEY_TO_ID[k]
-      if (id && !problem.choices.some((c) => c.id === id)) id = undefined
-      if (!id && /^[1-9]$/.test(k)) id = problem.choices[Number(k) - 1]?.id
+      if (id && !choices.some((c) => c.id === id)) id = undefined
+      if (!id && /^[1-9]$/.test(k)) id = choices[Number(k) - 1]?.id
       if (id) {
         e.preventDefault()
         pick(id)
@@ -161,7 +164,7 @@ export function ProblemCard(props: {
       ) : null}
 
       <AnswerPad
-        choices={problem.choices}
+        choices={choices}
         answer={problem.answer}
         picked={picked}
         stage={stage}

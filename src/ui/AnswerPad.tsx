@@ -5,6 +5,7 @@ export type PadStage = 'ask' | 'locked' | 'revealed'
 
 const DPAD = new Set(['up', 'down', 'left', 'right', 'zero'])
 const DEPTH = new Set(['out', 'in'])
+const SPIN = new Set(['cw', 'ccw'])
 
 /** Choice ids a key selects. Digits are handled separately (by index). */
 export const KEY_TO_ID: Record<string, string> = {
@@ -36,7 +37,7 @@ export function AnswerPad(props: {
   const ids = choices.map((c) => c.id)
   // A d-pad only makes sense with both a horizontal and a vertical direction; otherwise use a row.
   const isDirPad =
-    ids.every((id) => DPAD.has(id) || DEPTH.has(id)) &&
+    ids.every((id) => DPAD.has(id) || DEPTH.has(id) || SPIN.has(id)) &&
     ids.some((id) => id === 'left' || id === 'right') &&
     ids.some((id) => id === 'up' || id === 'down')
 
@@ -85,6 +86,7 @@ export function AnswerPad(props: {
 
   const flat = choices.filter((c) => DPAD.has(c.id))
   const depth = choices.filter((c) => DEPTH.has(c.id))
+  const spin = choices.filter((c) => SPIN.has(c.id))
   return (
     <div class={`pad pad-dir${depth.length ? '' : ' no-depth'}`} role="group" aria-label="Answer choices">
       <div class="dpad">
@@ -92,6 +94,7 @@ export function AnswerPad(props: {
         {ids.includes('zero') ? null : <span class="dpad-hub" aria-hidden="true" />}
       </div>
       {depth.length ? <div class={`depth n${depth.length}`}>{depth.map((c) => btn(c, 'depth-btn'))}</div> : null}
+      {spin.length ? <div class="spin">{spin.map((c) => btn(c))}</div> : null}
     </div>
   )
 }

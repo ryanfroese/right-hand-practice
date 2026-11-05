@@ -604,7 +604,8 @@ const magnetCoil: ProblemType = {
       prompt: (
         <>
           The magnet moves {motion === 'toward' ? 'toward' : 'away from'} the {loopWord} with its <b>{pole}</b> pole facing it.
-          Which way does the induced current flow on the near (solid) side of the {loopWord}?
+          Look at the <b>front</b> of the {loopWord} — the solid wire, the part closest to you. Is the induced current there flowing up or
+          down the page?
         </>
       ),
       diagram,
@@ -617,7 +618,7 @@ const magnetCoil: ProblemType = {
           <Q k="B">B</Q> points {DIR_PHRASE[bInd]} along the axis ({change > 0 ? 'opposing' : 'supporting'} it) — the{' '}
           {loopWord}'s face toward the magnet becomes {facePole === 'N' ? 'an N' : 'an S'} pole to{' '}
           {change > 0 ? 'repel' : 'attract'} it. Point your right thumb {DIR_PHRASE[bInd]} along the axis and curl your
-          fingers: on the near (solid) side, the side toward you, they point <Q k="I">{DIR_PHRASE[near]}</Q>.
+          fingers: across the front of the {loopWord} (solid, closest to you) they point <Q k="I">{DIR_PHRASE[near]}</Q>.
         </>
       ),
       hint: (
