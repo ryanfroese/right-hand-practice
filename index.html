@@ -1,10 +1,26 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Right-Hand Rule Practice</title>
+    <meta name="description" content="Infinite, generated right-hand-rule practice: forces on charges and wires, fields of currents, loops, solenoids and Lenz's law." />
+    <meta name="theme-color" content="#f4f2fb" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>rh-rule-practice</title>
+    <script>
+      // Set the theme before first paint (no flash). Key must match THEME_KEY in src/ui/themeMode.ts.
+      ;(function () {
+        try {
+          var ok = { light: 1, dark: 1, system: 1 }
+          var m = new URLSearchParams(location.search).get('theme')
+          if (!ok[m]) m = localStorage.getItem('rh.theme')
+          if (!ok[m]) m = 'system'
+          var t = m === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : m
+          document.documentElement.setAttribute('data-theme', t)
+          if (t === 'dark') document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0b0e14')
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>
