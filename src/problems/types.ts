@@ -26,7 +26,14 @@ export interface Problem {
   prompt: ComponentChildren
   /** A <Diagram> element */
   diagram: ComponentChildren
+  /**
+   * The FOCUSED answer set: only the answers the picture leaves open. The pad
+   * shows these in "focused" mode; in "full" mode it shows `fullChoices`, or
+   * all six directions (see practice/settings.ts fullChoicesFor).
+   */
   choices: Choice[]
+  /** Optional explicit full pad (e.g. directions + rotations for a coil that could be seen end-on). */
+  fullChoices?: Choice[]
   /** id of the correct Choice */
   answer: string
   /** Shown after the student answers: how the rule gives the answer (2–4 short sentences). */
@@ -47,7 +54,20 @@ export interface ProblemType {
   title: string
   /** the skill being practiced, one line */
   skill: string
-  generate(rng: Rng): Problem
+  /** Coil views this type can draw; omitted = not a coil drawing (unaffected by the views setting). */
+  views?: CoilView[]
+  generate(rng: Rng, opts?: GenOptions): Problem
+}
+
+/**
+ * How a coil is drawn. side = axis left–right; upright = axis up–down;
+ * end = looking straight down the axis (the coil is a circle in the page).
+ */
+export type CoilView = 'side' | 'upright' | 'end'
+
+export interface GenOptions {
+  /** coil views allowed for this problem (a subset of the type's `views`) */
+  views?: CoilView[]
 }
 
 // ---------------------------------------------------------------------------

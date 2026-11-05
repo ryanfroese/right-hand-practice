@@ -1,8 +1,8 @@
 import type { Category, ProblemType } from '../problems/types'
 import { CATEGORY_LABEL } from '../problems/types'
+import type { Selection } from './hash'
 
-/** null = "All" (so types added later are included automatically). */
-export type Selection = string[] | null
+export type { Selection }
 
 export function groupByCategory(types: ProblemType[]): [Category, ProblemType[]][] {
   const order = Object.keys(CATEGORY_LABEL) as Category[]
@@ -20,7 +20,13 @@ export function activeIds(sel: Selection, types: ProblemType[]): Set<string> {
   return new Set(valid)
 }
 
-export function TopicPicker(props: { types: ProblemType[]; selection: Selection; onChange: (s: Selection) => void }) {
+export function TopicPicker(props: {
+  types: ProblemType[]
+  selection: Selection
+  onChange: (s: Selection) => void
+  /** types that can't come up under the current answer/view settings (shown struck through) */
+  unavailable?: Set<string>
+}) {
   const { types } = props
   const active = activeIds(props.selection, types)
   const isAll = props.selection == null || active.size === types.length
@@ -64,13 +70,14 @@ export function TopicPicker(props: { types: ProblemType[]; selection: Selection;
             <div class="topic-row">
               {ts.map((t) => {
                 const on = !isAll && active.has(t.id)
+                const off = props.unavailable?.has(t.id)
                 return (
                   <button
                     type="button"
                     key={t.id}
-                    class={`chip chip-type${on ? ' on' : ''}`}
+                    class={`chip chip-type${on ? ' on' : ''}${off ? ' unavail' : ''}`}
                     aria-pressed={on}
-                    title={t.skill}
+                    title={off ? `${t.skill} (Not with the answer types / coil views chosen below.)` : t.skill}
                     onClick={() => toggleType(t.id)}
                   >
                     {t.title}

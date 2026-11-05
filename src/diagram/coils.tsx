@@ -18,9 +18,11 @@
  *     segment passes behind a near arc, the near arc's paper-colored halo
  *     breaks it, so the near side visibly occludes the far side.
  *   - both lead wires leave horizontally from the same side (top or bottom).
+ *   - orient 'v' turns the whole drawing a quarter-turn (see SolenoidOrient).
  *
  * Physics (page coords, near side at +z): if near-side current flows in page
- * direction d (up/down), B inside = cross(out, d). Near-side current up → B left.
+ * direction d, B inside = cross(out, d). Near-side current up → B left;
+ * near-side current right (upright coil) → B up.
  * (That math lives in the problem generators; this file only draws.)
  */
 import type { JSX } from 'preact'
@@ -36,11 +38,21 @@ const f = (n: number) => Math.round(n * 100) / 100
 // Solenoid
 // ---------------------------------------------------------------------------
 
+/**
+ * 'h' = axis left–right (the classic side view). 'v' = the same drawing turned
+ * a quarter-turn clockwise about (cx, cy): the axis runs up–down, the side-view
+ * LEFT end is at the TOP, and the side-view top leads come out on the RIGHT.
+ * Everything is laid out in side-view coordinates and mapped through `P`, so
+ * the two orientations can never disagree about which way the wire goes.
+ */
+export type SolenoidOrient = 'h' | 'v'
+
 export interface SolenoidProps {
-  /** center x of the coil body */
+  /** screen center of the coil body */
   cx: number
-  /** y of the coil axis */
+  /** screen y of the coil center (the axis, for 'h') */
   cy: number
+  orient?: SolenoidOrient
   /** number of turns (5–8 looks best) */
   turns: number
   /** half-height of each turn (ellipse ry) */
@@ -49,16 +61,18 @@ export interface SolenoidProps {
   rx?: number
   /** spacing between turns */
   pitch?: number
-  /** which side the two lead wires leave from */
+  /** which side (in side-view terms) the two lead wires leave from */
   leads?: 'top' | 'bottom'
-  /** 'forward' = current enters at the LEFT lead and leaves at the right lead */
+  /** 'forward' = current enters at the side-view LEFT lead and leaves at the right lead */
   current?: 'forward' | 'backward' | 'none'
-  /** label for the current on the left lead, e.g. "I"; unknownCurrent adds " = ?" */
+  /** label for the current on the first lead, e.g. "I"; unknownCurrent adds " = ?" */
   currentLabel?: string
   unknownCurrent?: boolean
   leadLength?: number
-  /** draw the near/far caption this far below the lowest coil element (default: no caption) */
+  /** draw the near/far caption at this SCREEN y (default: no caption) */
   captionY?: number
+  /** caption center x (default: center of the 680 canvas) */
+  captionX?: number
   /** short dashed axis stubs just outside each end of the body */
   showAxis?: boolean
   /**
@@ -71,6 +85,12 @@ export interface SolenoidProps {
 }
 
 export interface SolenoidGeometry {
+  orient: SolenoidOrient
+  /** side-view → screen */
+  P: (x: number, y: number) => [number, number]
+  /** side-view screen direction → screen direction */
+  D: (ux: number, uy: number) => [number, number]
+  /** the rest is in SIDE-VIEW coordinates (map with P before drawing) */
   /** x of the vertical-tangent join (rightmost point) of each near arc */
   joinX: number[]
   /** x of the top/bottom points of each turn */
@@ -87,8 +107,10 @@ export interface SolenoidGeometry {
   leadY: number
   leftLeadEnd: number
   rightLeadEnd: number
-  /** page direction of the current on the near (solid) side, null if no current */
-  nearCurrent: 'up' | 'down' | null
+  /** PAGE direction of the current on the near (solid) side, null if no current */
+  nearCurrent: Dir | null
+  /** PAGE direction from the side-view left end toward the right end (along the axis) */
+  axisDir: Dir
   R: number
   rx: number
   pitch: number
@@ -104,38 +126,53 @@ function defaults(p: SolenoidProps) {
   return { R, rx, pitch, leads, cur, L }
 }
 
+/** Screen direction → page direction (screen y is down). */
+export function screenToDir(ux: number, uy: number): Dir {
+  if (Math.abs(ux) > Math.abs(uy)) return ux > 0 ? 'right' : 'left'
+  return uy > 0 ? 'down' : 'up'
+}
+
 /**
  * Geometry of a Solenoid with the same props. The near-side current direction
  * is read off the drawing: with leads on top and forward current, the wire
- * runs down each near arc (top → right → bottom).
+ * runs down each near arc (top → right → bottom), before orientation.
  */
 export function solenoidGeometry(p: SolenoidProps): SolenoidGeometry {
   const { R, rx, pitch, leads, cur, L } = defaults(p)
+  const orient = p.orient ?? 'h'
+  const { cx, cy } = p
+  const P = (x: number, y: number): [number, number] => (orient === 'h' ? [x, y] : [cx - (y - cy), cy + (x - cx)])
+  const D = (ux: number, uy: number): [number, number] => (orient === 'h' ? [ux, uy] : [-uy, ux])
   const n = p.turns
   const bodyW = n * pitch
-  const x0 = p.cx - bodyW / 2
+  const x0 = cx - bodyW / 2
   const loopX = Array.from({ length: n }, (_, i) => x0 + i * pitch)
   const left = x0
   const right = x0 + bodyW
-  const leadY = leads === 'top' ? p.cy - R : p.cy + R
-  let nearCurrent: 'up' | 'down' | null = null
+  const leadY = leads === 'top' ? cy - R : cy + R
+  let nearCurrent: Dir | null = null
   if (cur !== 'none') {
     const downWhenForward = leads === 'top'
-    nearCurrent = (cur === 'forward') === downWhenForward ? 'down' : 'up'
+    const down = (cur === 'forward') === downWhenForward
+    nearCurrent = screenToDir(...D(0, down ? 1 : -1))
   }
   return {
+    orient,
+    P,
+    D,
     joinX: loopX.map((x) => x + rx),
     loopX,
     left,
     right,
     axisLeft: Math.min(x0 + rx, x0 + pitch / 2 - rx),
     axisRight: loopX[n - 1] + rx,
-    top: p.cy - R,
-    bottom: p.cy + R,
+    top: cy - R,
+    bottom: cy + R,
     leadY,
     leftLeadEnd: left - L,
     rightLeadEnd: right + L,
     nearCurrent,
+    axisDir: screenToDir(...D(1, 0)),
     R,
     rx,
     pitch,
@@ -146,37 +183,63 @@ export function Solenoid(props: SolenoidProps) {
   const { R, rx, pitch, leads, cur } = defaults(props)
   const g = solenoidGeometry(props)
   const { cy } = props
+  const { P, D } = g
+  const vert = g.orient === 'v'
   // reflect about the axis when the leads are at the bottom
   const flip = leads === 'bottom'
   const Y = (y: number) => (flip ? 2 * cy - y : y)
   const sweep = flip ? 0 : 1
+  const arcRot = vert ? 90 : 0
+  const pt = (x: number, y: number) => P(x, y).map(f).join(' ')
   const wireW = STROKE.wire
   const near: JSX.Element[] = []
   const halos: JSX.Element[] = []
   const far: JSX.Element[] = []
   const heads: JSX.Element[] = []
-  const marks: JSX.Element[] = []
+  const tint: JSX.Element[] = []
+  const callout: JSX.Element[] = []
+  const head = (key: string, x: number, y: number, ux: number, uy: number, size: number) => {
+    const [sx, sy] = P(x, y)
+    const [dx, dy] = D(ux, uy)
+    return <ArrowHead key={key} x={sx} y={sy} ux={dx} uy={dy} color={COLORS.I} size={size} />
+  }
 
   g.loopX.forEach((x, i) => {
     // near half: two quarter arcs, top → join → bottom (before reflection)
-    const d = `M ${f(x)} ${f(Y(cy - R))} A ${rx} ${R} 0 0 ${sweep} ${f(x + rx)} ${f(cy)} A ${rx} ${R} 0 0 ${sweep} ${f(x)} ${f(Y(cy + R))}`
+    const d = `M ${pt(x, Y(cy - R))} A ${rx} ${R} ${arcRot} 0 ${sweep} ${pt(x + rx, cy)} A ${rx} ${R} ${arcRot} 0 ${sweep} ${pt(x, Y(cy + R))}`
     halos.push(<path key={`h${i}`} d={d} fill="none" stroke={COLORS.paper} stroke-width={wireW + 7} stroke-linecap="butt" />)
     if (i === props.markTurn) {
-      marks.push(<path key="mk" d={d} fill="none" stroke={COLORS.I} stroke-opacity={0.35} stroke-width={wireW + 9} stroke-linecap="round" />)
-      // leader from the callout (free side) to a point low on the front arc
+      tint.push(<path key="mk" d={d} fill="none" stroke={COLORS.I} stroke-opacity={0.35} stroke-width={wireW + 9} stroke-linecap="round" />)
+      // leader from the callout (free side, away from the leads) to a point low on the front arc
       const t = 2.45
-      const ax = x + rx * Math.sin(t)
-      const ay = Y(cy - R * Math.cos(t))
-      const ty = Y(cy + R + 34)
-      marks.push(
-        <line key="ml" x1={f(ax)} y1={f(ay + (flip ? -6 : 6))} x2={f(ax + 26)} y2={f(ty + (flip ? 12 : -12))} stroke={COLORS.I} stroke-width={2} />,
-      )
-      marks.push(<VecLabel key="mt" x={ax + 26} y={ty} symbol="I" color={COLORS.I} unknown anchor="start" />)
-      marks.push(
-        <Label key="ms" x={ax + 26} y={ty + (flip ? -24 : 24)} size={FONT.small} weight={500} color={COLORS.ink} anchor="start">
-          front wire (closest to you)
-        </Label>,
-      )
+      const [ax, ay] = P(x + rx * Math.sin(t), Y(cy - R * Math.cos(t)))
+      const [tx, ty] = P(x + rx * Math.sin(t) + 26, Y(cy + R + 34))
+      if (!vert) {
+        const s = flip ? -1 : 1
+        callout.push(<line key="ml" x1={f(ax)} y1={f(ay + 6 * s)} x2={f(tx)} y2={f(ty - 12 * s)} stroke={COLORS.I} stroke-width={2} />)
+        callout.push(<VecLabel key="mt" x={tx} y={ty} symbol="I" color={COLORS.I} unknown anchor="start" />)
+        callout.push(
+          <Label key="ms" x={tx} y={ty + 24 * s} size={FONT.small} weight={500} color={COLORS.ink} anchor="start">
+            front wire (closest to you)
+          </Label>,
+        )
+      } else {
+        // free side is left or right of the upright coil; text reads away from the coil
+        const s = tx > props.cx ? 1 : -1
+        const anchor = s > 0 ? 'start' : 'end'
+        callout.push(<line key="ml" x1={f(ax + 6 * s)} y1={f(ay)} x2={f(tx - 6 * s)} y2={f(ty)} stroke={COLORS.I} stroke-width={2} />)
+        callout.push(<VecLabel key="mt" x={tx} y={ty - 12} symbol="I" color={COLORS.I} unknown anchor={anchor} />)
+        callout.push(
+          <Label key="ms" x={tx} y={ty + 14} size={FONT.small} weight={500} color={COLORS.ink} anchor={anchor}>
+            front wire
+          </Label>,
+        )
+        callout.push(
+          <Label key="ms2" x={tx} y={ty + 33} size={FONT.small} weight={500} color={COLORS.ink} anchor={anchor}>
+            (closest to you)
+          </Label>,
+        )
+      }
     }
     near.push(<path key={`n${i}`} d={d} fill="none" stroke={COLORS.wire} stroke-width={wireW} stroke-linecap="round" />)
     // far half: sheared half-ellipse from bottom of turn i to top of turn i+1
@@ -186,7 +249,7 @@ export function Solenoid(props: SolenoidProps) {
       const u = (Math.PI * k) / steps
       const px = x + (pitch * u) / Math.PI - rx * Math.sin(u)
       const py = cy + R * Math.cos(u)
-      pts.push(`${f(px)},${f(Y(py))}`)
+      pts.push(P(px, Y(py)).map(f).join(','))
     }
     far.push(
       <polyline
@@ -199,51 +262,69 @@ export function Solenoid(props: SolenoidProps) {
         stroke-linecap="round"
       />,
     )
-    if (g.nearCurrent) {
-      const uy = g.nearCurrent === 'down' ? 1 : -1
+    if (cur !== 'none') {
+      // arrow along the near arc at its join, in the direction the current runs there (side view: up/down)
+      const down = (cur === 'forward') === (leads === 'top')
+      const uy = down ? 1 : -1
       const size = 17
-      heads.push(<ArrowHead key={`a${i}`} x={x + rx} y={cy + uy * size * 0.5} ux={0} uy={uy} color={COLORS.I} size={size} />)
+      heads.push(head(`a${i}`, x + rx, cy + uy * size * 0.5, 0, uy, size))
     }
   })
 
-  // lead wires (horizontal), with terminals
+  // lead wires (along the axis), with terminals
   const ly = g.leadY
-  const leadEls = [
-    <line key="ll" x1={g.leftLeadEnd} y1={ly} x2={g.left} y2={ly} stroke={COLORS.wire} stroke-width={wireW} stroke-linecap="round" />,
-    <line key="rl" x1={g.right} y1={ly} x2={g.rightLeadEnd} y2={ly} stroke={COLORS.wire} stroke-width={wireW} stroke-linecap="round" />,
-    <circle key="lt" cx={g.leftLeadEnd} cy={ly} r={5} fill={COLORS.paper} stroke={COLORS.wire} stroke-width={2.5} />,
-    <circle key="rt" cx={g.rightLeadEnd} cy={ly} r={5} fill={COLORS.paper} stroke={COLORS.wire} stroke-width={2.5} />,
-  ]
+  const seg = (key: string, x1: number, x2: number) => {
+    const [a, b] = P(x1, ly)
+    const [c, d] = P(x2, ly)
+    return <line key={key} x1={f(a)} y1={f(b)} x2={f(c)} y2={f(d)} stroke={COLORS.wire} stroke-width={wireW} stroke-linecap="round" />
+  }
+  const term = (key: string, x: number) => {
+    const [a, b] = P(x, ly)
+    return <circle key={key} cx={f(a)} cy={f(b)} r={5} fill={COLORS.paper} stroke={COLORS.wire} stroke-width={2.5} />
+  }
+  const leadEls = [seg('ll', g.leftLeadEnd, g.left), seg('rl', g.right, g.rightLeadEnd), term('lt', g.leftLeadEnd), term('rt', g.rightLeadEnd)]
   if (cur !== 'none') {
     const ux = cur === 'forward' ? 1 : -1
     const size = 17
     const lm = (g.leftLeadEnd + g.left) / 2
     const rm = (g.right + g.rightLeadEnd) / 2
-    leadEls.push(<ArrowHead key="la" x={lm + ux * size * 0.5} y={ly} ux={ux} uy={0} color={COLORS.I} size={size} />)
-    leadEls.push(<ArrowHead key="ra" x={rm + ux * size * 0.5} y={ly} ux={ux} uy={0} color={COLORS.I} size={size} />)
+    leadEls.push(head('la', lm + ux * size * 0.5, ly, ux, 0, size))
+    leadEls.push(head('ra', rm + ux * size * 0.5, ly, ux, 0, size))
   }
-  const labelY = ly + (flip ? 24 : -24)
-  const labelX = (g.leftLeadEnd + g.left) / 2
+  let label: JSX.Element | null = null
+  if (props.currentLabel) {
+    const lx = (g.leftLeadEnd + g.left) / 2
+    if (!vert) {
+      label = <VecLabel x={lx} y={ly + (flip ? 24 : -24)} symbol={props.currentLabel} color={COLORS.I} unknown={props.unknownCurrent} />
+    } else {
+      // beside the (now vertical) lead, on the side away from the coil
+      const [sx, sy] = P(lx, ly + (flip ? 14 : -14))
+      label = <VecLabel x={sx} y={sy} symbol={props.currentLabel} color={COLORS.I} unknown={props.unknownCurrent} anchor={sx > props.cx ? 'start' : 'end'} />
+    }
+  }
+  const stub = (x1: number, x2: number) => {
+    const [a, b] = P(x1, cy)
+    const [c, d] = P(x2, cy)
+    return <line x1={f(a)} y1={f(b)} x2={f(c)} y2={f(d)} />
+  }
 
   return (
     <g>
       {props.showAxis ? (
         <g stroke={COLORS.muted} stroke-width={STROKE.guide} stroke-dasharray="3 5">
-          <line x1={g.axisLeft - 34} y1={cy} x2={g.axisLeft - 6} y2={cy} />
-          <line x1={g.axisRight + 6} y1={cy} x2={g.axisRight + 34} y2={cy} />
+          {stub(g.axisLeft - 34, g.axisLeft - 6)}
+          {stub(g.axisRight + 6, g.axisRight + 34)}
         </g>
       ) : null}
       {far}
       {halos}
-      {marks.filter((m) => m.key === 'mk')}
+      {tint}
       {near}
       {leadEls}
       {heads}
-      {props.currentLabel ? (
-        <VecLabel x={labelX} y={labelY} symbol={props.currentLabel} color={COLORS.I} unknown={props.unknownCurrent} />
-      ) : null}
-      {marks.filter((m) => m.key !== 'mk')}
-      {props.captionY !== undefined ? <Caption y={props.captionY}>{NEAR_FAR_CAPTION}</Caption> : null}
+      {label}
+      {callout}
+      {props.captionY !== undefined ? <Caption x={props.captionX} y={props.captionY}>{NEAR_FAR_CAPTION}</Caption> : null}
     </g>
   )
 }
@@ -333,6 +414,23 @@ export function Loop(props: LoopProps) {
   }
   return <g>{els}</g>
 }
+
+/**
+ * A solenoid seen END-ON: looking straight down its axis, so every turn lines
+ * up into one circle. The near end is the solid Loop (with its current
+ * arrows); the far end shows through as a smaller dashed circle (perspective),
+ * which is what tells the student this is a tube coming at them.
+ */
+export function EndOnCoil(props: LoopProps) {
+  return (
+    <g>
+      <circle cx={props.cx} cy={props.cy} r={props.r * 0.66} fill="none" stroke={COLORS.muted} stroke-width={2.5} stroke-dasharray="7 6" />
+      <Loop {...props} />
+    </g>
+  )
+}
+
+export const END_ON_CAPTION = 'Looking straight down the coil · solid = near end · dashed = far end'
 
 // ---------------------------------------------------------------------------
 // Compass

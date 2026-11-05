@@ -1387,3 +1387,107 @@ details.panel > :last-child {
     scroll-behavior: auto !important;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Practice-set settings (answer kinds, pad size, coil views)                 */
+
+.settings {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.set-group {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 0 0;
+  border: 0;
+  border-top: 1px dashed var(--border);
+  min-width: 0;
+}
+
+.set-group legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 8px;
+  font-weight: 650;
+  font-size: 0.875rem;
+}
+
+.set-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+
+.kind-glyph {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.chip[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+.chip.unavail {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.segtext {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-self: start;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.segtext button {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.segtext button.on {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 650;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme='dark'] .segtext button.on {
+  background: var(--surface-3);
+}
+
+.set-share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+
+.set-share .muted {
+  font-size: 0.8rem;
+}
+
+/* rotations under the d-pad when a question offers both */
+.spin {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap);
+  padding-top: calc(var(--gap) * 1.75);
+  border-top: 1px dashed var(--border-strong);
+}
