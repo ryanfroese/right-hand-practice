@@ -227,6 +227,15 @@ describe('coil-solenoid-current', () => {
     }
   })
   it('distribution', () => expectAll(ps, ['up', 'down']))
+  it('names one front (solid) wire, not the horizontal lead', () => {
+    for (const p of ps) {
+      const svg = renderToString(p.diagram as never)
+      // exactly one tinted near arc, one "I = ?" callout, and it says which wire
+      expect(svg.match(new RegExp(`stroke="${attrEsc(COLORS.I)}" stroke-opacity`, 'g'))).toHaveLength(1)
+      expect(svg.match(/ = \?/g)).toHaveLength(1)
+      expect(svg).toContain('front wire (closest to you)')
+    }
+  })
 })
 
 describe('all coil types', () => {

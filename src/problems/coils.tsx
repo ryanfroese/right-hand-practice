@@ -51,7 +51,7 @@ interface CoilLayout {
  * Random solenoid placed on the 680 canvas. `endRoom` reserves horizontal
  * space beyond each body end (for pole letters / compass).
  */
-function randomSolenoid(rng: Rng, opts: { current: 'forward' | 'backward' | 'none'; label?: string; unknownCurrent?: boolean; freeLabel?: boolean }): CoilLayout {
+function randomSolenoid(rng: Rng, opts: { current: 'forward' | 'backward' | 'none'; label?: string; unknownCurrent?: boolean; freeLabel?: boolean; markTurn?: boolean }): CoilLayout {
   const turns = rng.int(5, 8)
   const R = rng.pick([62, 66, 70])
   const pitch = turns >= 7 ? rng.pick([44, 46, 48]) : rng.pick([48, 52, 56])
@@ -61,7 +61,7 @@ function randomSolenoid(rng: Rng, opts: { current: 'forward' | 'backward' | 'non
   const cx = 340 + rng.int(-Math.floor(maxShift), Math.floor(maxShift))
   // vertical stack: [lead label][lead]...coil...[free label][caption]  (mirrored if leads at bottom)
   const leadSide = 52 // lead label sits 24px beyond the lead
-  const freeSide = opts.freeLabel ? 46 : 24
+  const freeSide = opts.markTurn ? 76 : opts.freeLabel ? 46 : 24
   const top = leads === 'top' ? leadSide : freeSide
   const cy = top + R
   const bottomEdge = cy + R + (leads === 'bottom' ? leadSide - 8 : freeSide)
@@ -76,6 +76,7 @@ function randomSolenoid(rng: Rng, opts: { current: 'forward' | 'backward' | 'non
     current: opts.current,
     currentLabel: opts.label,
     unknownCurrent: opts.unknownCurrent,
+    markTurn: opts.markTurn ? Math.floor((turns - 1) / 2) : undefined,
     captionY,
   }
   const freeLabelY = leads === 'top' ? cy + R + 28 : cy - R - 28
@@ -304,7 +305,7 @@ const solenoidCurrent: ProblemType = {
   skill: 'Given the north pole of a solenoid, find the current direction.',
   generate(rng): Problem {
     const north = rng.pick(['left', 'right'] as const)
-    const lay = randomSolenoid(rng, { current: 'none', label: 'I', unknownCurrent: true })
+    const lay = randomSolenoid(rng, { current: 'none', markTurn: true })
     const g = solenoidGeometry(lay.sol)
     const cy = lay.sol.cy
     // which near-side direction produces B inside pointing toward north?
@@ -320,18 +321,24 @@ const solenoidCurrent: ProblemType = {
       typeId: 'coil-solenoid-current',
       prompt: (
         <>
-          The {north} end of this solenoid is its north pole. Which way does the <Q k="I">current</Q> flow on the near (solid) side of the coils?
+          The {north} end of this solenoid is its north pole. Look at the <b>front</b> of the coil — the solid wire, the part closest to you
+          (highlighted). Is the <Q k="I">current</Q> there flowing up or down the page?
         </>
       ),
       diagram,
       choices: UP_DOWN_CHOICES,
       answer: near,
-      hint: <>Inside the coil, B points toward the N end. Point your right thumb that way and see how your fingers wrap over the front.</>,
+      hint: (
+        <>
+          Inside the coil, B points toward the N end. Point your right thumb that way and see which way your fingers go as they cross the front of the coil,
+          the side facing you.
+        </>
+      ),
       explanation: (
         <>
           Inside a solenoid <Q k="B">B</Q> points toward its north end, so <Q k="B">B</Q> inside points {DIR_PHRASE[north]}. Point your right thumb{' '}
-          {DIR_PHRASE[north]} and wrap your fingers around the coil: across the front (solid) side they go {DIR_PHRASE[near]}. So the{' '}
-          <Q k="I">current</Q> on the near side flows {DIR_PHRASE[near]}.
+          {DIR_PHRASE[north]} and wrap your fingers around the coil: across the front (solid) side, closest to you, they go {DIR_PHRASE[near]}. So
+          the <Q k="I">current</Q> in the front wire flows {DIR_PHRASE[near]} (and back {near === 'up' ? 'down' : 'up'} along the dashed wire behind).
         </>
       ),
       facts: { nearSide: 'out', north, leads: lay.sol.leads, turns: lay.sol.turns },

@@ -61,6 +61,13 @@ export interface SolenoidProps {
   captionY?: number
   /** short dashed axis stubs just outside each end of the body */
   showAxis?: boolean
+  /**
+   * Point at the front (near, solid) wire of this turn: tint it in the current
+   * color and hang an "I = ?" callout off it on the side away from the leads.
+   * Use this instead of `currentLabel` when asking which way the near-side
+   * current runs, so the question names one specific piece of wire.
+   */
+  markTurn?: number
 }
 
 export interface SolenoidGeometry {
@@ -148,11 +155,29 @@ export function Solenoid(props: SolenoidProps) {
   const halos: JSX.Element[] = []
   const far: JSX.Element[] = []
   const heads: JSX.Element[] = []
+  const marks: JSX.Element[] = []
 
   g.loopX.forEach((x, i) => {
     // near half: two quarter arcs, top → join → bottom (before reflection)
     const d = `M ${f(x)} ${f(Y(cy - R))} A ${rx} ${R} 0 0 ${sweep} ${f(x + rx)} ${f(cy)} A ${rx} ${R} 0 0 ${sweep} ${f(x)} ${f(Y(cy + R))}`
     halos.push(<path key={`h${i}`} d={d} fill="none" stroke={COLORS.paper} stroke-width={wireW + 7} stroke-linecap="butt" />)
+    if (i === props.markTurn) {
+      marks.push(<path key="mk" d={d} fill="none" stroke={COLORS.I} stroke-opacity={0.35} stroke-width={wireW + 9} stroke-linecap="round" />)
+      // leader from the callout (free side) to a point low on the front arc
+      const t = 2.45
+      const ax = x + rx * Math.sin(t)
+      const ay = Y(cy - R * Math.cos(t))
+      const ty = Y(cy + R + 34)
+      marks.push(
+        <line key="ml" x1={f(ax)} y1={f(ay + (flip ? -6 : 6))} x2={f(ax + 26)} y2={f(ty + (flip ? 12 : -12))} stroke={COLORS.I} stroke-width={2} />,
+      )
+      marks.push(<VecLabel key="mt" x={ax + 26} y={ty} symbol="I" color={COLORS.I} unknown anchor="start" />)
+      marks.push(
+        <Label key="ms" x={ax + 26} y={ty + (flip ? -24 : 24)} size={FONT.small} weight={500} color={COLORS.ink} anchor="start">
+          front wire (closest to you)
+        </Label>,
+      )
+    }
     near.push(<path key={`n${i}`} d={d} fill="none" stroke={COLORS.wire} stroke-width={wireW} stroke-linecap="round" />)
     // far half: sheared half-ellipse from bottom of turn i to top of turn i+1
     const pts: string[] = []
@@ -210,12 +235,14 @@ export function Solenoid(props: SolenoidProps) {
       ) : null}
       {far}
       {halos}
+      {marks.filter((m) => m.key === 'mk')}
       {near}
       {leadEls}
       {heads}
       {props.currentLabel ? (
         <VecLabel x={labelX} y={labelY} symbol={props.currentLabel} color={COLORS.I} unknown={props.unknownCurrent} />
       ) : null}
+      {marks.filter((m) => m.key !== 'mk')}
       {props.captionY !== undefined ? <Caption y={props.captionY}>{NEAR_FAR_CAPTION}</Caption> : null}
     </g>
   )
